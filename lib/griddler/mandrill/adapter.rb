@@ -46,11 +46,8 @@ module Griddler
 
       def resolve_bcc(event)
         email = event[:email]
-        if !event[:to].map(&:first).include?(email) && event[:cc] && !event[:cc].map(&:first).include?(email)
-          [full_email([email, email.split("@")[0]])]
-        else
-          []
-        end
+        to_and_cc = (event[:to].to_a + event[:cc].to_a).compact.map(&:first)
+        to_and_cc.include?(email) ? [] : [full_email([email, email.split("@")[0]])]
       end
 
       def full_email(contact_info)
@@ -63,12 +60,19 @@ module Griddler
       end
 
       def attachment_files(event)
-        attachments = event[:attachments] || Array.new
-        attachments.map do |key, attachment|
+        files(event, :attachments) + files(event, :images)
+      end
+
+      def files(event, key)
+        files = event[key] || Hash.new
+
+        files.map do |key, file|
+          file[:base64] = true if !file.has_key?(:base64)
+
           ActionDispatch::Http::UploadedFile.new({
-            filename: attachment[:name],
-            type: attachment[:type],
-            tempfile: create_tempfile(attachment)
+            filename: file[:name],
+            type: file[:type],
+            tempfile: create_tempfile(file)
           })
         end
       end
